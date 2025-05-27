@@ -1,21 +1,539 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 35 100% 55%;
+    --primary-foreground: 210 11% 8%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 35 100% 55%;
+    --accent-foreground: 210 11% 8%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 35 100% 55%;
+    --radius: 0.375rem;
+
+    /* Tarkov Color System */
+    --tarkov-orange: 35 100% 55%;
+    --tarkov-green: 120 40% 45%;
+    --tarkov-panel: 210 11% 15%;
+    --tarkov-border: 210 11% 20%;
+    --tarkov-accent: 45 100% 60%;
+    --tarkov-warning: 35 100% 55%;
+    --tarkov-success: 120 40% 45%;
+  }
+
+  .dark {
+    --background: 210 11% 8%;
+    --foreground: 60 5% 85%;
+    --card: 210 11% 10%;
+    --card-foreground: 60 5% 85%;
+    --popover: 210 11% 12%;
+    --popover-foreground: 60 5% 85%;
+    --primary: 35 100% 55%;
+    --primary-foreground: 210 11% 8%;
+    --secondary: 120 8% 15%;
+    --secondary-foreground: 60 5% 85%;
+    --muted: 210 11% 15%;
+    --muted-foreground: 60 3% 60%;
+    --accent: 35 100% 55%;
+    --accent-foreground: 210 11% 8%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 60 5% 85%;
+    --border: 210 11% 20%;
+    --input: 210 11% 12%;
+    --ring: 35 100% 55%;
+
+    /* Tarkov Color System - Dark Theme */
+    --tarkov-orange: 35 100% 55%;
+    --tarkov-green: 120 40% 45%;
+    --tarkov-panel: 210 11% 15%;
+    --tarkov-border: 210 11% 20%;
+    --tarkov-accent: 45 100% 60%;
+    --tarkov-warning: 35 100% 55%;
+    --tarkov-success: 120 40% 45%;
+  }
+
+  /* PvE Theme */
+  .theme-pve {
+    --nav-bg: 220 50% 8%;
+    --nav-border: 220 60% 25%;
+    --sidebar-bg: 220 50% 10%;
+    --sidebar-border: 220 60% 25%;
+    --mode-accent: 220 60% 50%;
+    --mode-accent-hover: 220 70% 60%;
+    --mode-bg-subtle: 220 50% 5%;
+  }
+
+  /* PvP Theme */
+  .theme-pvp {
+    --nav-bg: 0 50% 5%;
+    --nav-border: 0 60% 20%;
+    --sidebar-bg: 0 50% 5%;
+    --sidebar-border: 0 60% 20%;
+    --mode-accent: 0 60% 50%;
+    --mode-accent-hover: 0 70% 60%;
+    --mode-bg-subtle: 0 50% 4%;
+  }
+
+  /* Gold title color */
+  .title-gold {
+    color: hsl(var(--tarkov-accent));
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: "Rajdhani", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Roboto, sans-serif;
+  }
+
+  /* Typography */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Rajdhani", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+  }
+
+  h1 {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    h1 {
+      font-size: 3rem;
+      line-height: 1;
+    }
+  }
+
+  h2 {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+
+  @media (min-width: 1024px) {
+    h2 {
+      font-size: 2.25rem;
+      line-height: 2.5rem;
+    }
+  }
+
+  h3 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  @media (min-width: 1024px) {
+    h3 {
+      font-size: 1.875rem;
+      line-height: 2.25rem;
+    }
+  }
+
+  code,
+  pre {
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus styles */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--ring)), 0 0 0 4px hsl(var(--background));
+  }
+
+  /* Selection styles */
+  ::selection {
+    background: hsl(35 100% 55% / 0.3);
+    color: hsl(60 5% 85%);
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Tarkov-inspired component styles */
+@layer components {
+  /* Glass morphism with military aesthetic */
+  .glass {
+    background: hsl(210 11% 8% / 0.4);
+    backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid hsl(210 11% 20% / 0.3);
+    box-shadow: 0 8px 32px hsl(210 11% 8% / 0.8),
+      inset 0 1px 0 hsl(60 5% 85% / 0.05);
+  }
+
+  /* Tactical panel styling */
+  .tactical-panel {
+    background: linear-gradient(
+      135deg,
+      hsl(210 11% 10%) 0%,
+      hsl(210 11% 15%) 100%
+    );
+    border: 1px solid hsl(210 11% 20%);
+    box-shadow: 0 4px 16px hsl(210 11% 8% / 0.6),
+      inset 0 1px 0 hsl(60 5% 85% / 0.03);
+  }
+
+  /* Weathered/distressed effect */
+  .weathered {
+    position: relative;
+  }
+
+  .weathered::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: radial-gradient(
+        circle at 20% 80%,
+        hsl(210 11% 8% / 0.1) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 80% 20%,
+        hsl(60 5% 85% / 0.02) 0%,
+        transparent 50%
+      );
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Glow effects */
+  .glow-orange {
+    box-shadow: 0 0 20px hsl(35 100% 55% / 0.4);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px hsl(120 40% 45% / 0.4);
+  }
+
+  /* Card Hierarchy System */
+  .base-card {
+    background: hsl(210 11% 8% / 0.6);
+    backdrop-filter: blur(12px) saturate(180%);
+    border: 2px solid hsl(var(--tarkov-border));
+    box-shadow: 0 8px 32px hsl(210 11% 8% / 0.8),
+      inset 0 1px 0 hsl(60 5% 85% / 0.05),
+      0 0 20px hsl(var(--tarkov-accent) / 0.1);
+    border-radius: 0.5rem;
+  }
+
+  .content-card {
+    background: hsl(210 11% 10% / 0.8);
+    border: 1px solid hsl(var(--tarkov-border) / 0.6);
+    box-shadow: 0 4px 16px hsl(210 11% 8% / 0.4),
+      inset 0 1px 0 hsl(60 5% 85% / 0.03);
+    border-radius: 0.375rem;
+  }
+
+  /* Active route indication */
+  .route-active {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--tarkov-accent) / 0.5) 0%,
+      hsl(var(--tarkov-accent) / 0.3) 100%
+    );
+    border-color: hsl(var(--tarkov-accent) / 0.6);
+    box-shadow: 0 0 20px hsl(var(--tarkov-accent) / 0.4);
+  }
+
+  /* Military-style buttons */
+  .btn-tactical {
+    background: linear-gradient(
+      135deg,
+      hsl(120 8% 15%) 0%,
+      hsl(210 11% 15%) 100%
+    );
+    border: 1px solid hsl(210 11% 20%);
+    color: hsl(60 5% 85%);
+    font-family: "Rajdhani", sans-serif;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+  }
+
+  .btn-tactical:hover {
+    background: linear-gradient(
+      135deg,
+      hsl(35 100% 55%) 0%,
+      hsl(35 100% 55%) 100%
+    );
+    color: hsl(210 11% 8%);
+    box-shadow: 0 4px 16px hsl(35 100% 55% / 0.3);
+  }
+
+  /* Success button styling */
+  .btn-success {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--tarkov-success)) 0%,
+      hsl(var(--tarkov-success) / 0.8) 100%
+    );
+    border: 1px solid hsl(var(--tarkov-success));
+    color: hsl(210 11% 8%);
+    font-weight: 600;
+  }
+
+  .btn-success:hover {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--tarkov-success) / 0.9) 0%,
+      hsl(var(--tarkov-success) / 0.7) 100%
+    );
+    box-shadow: 0 0 20px hsl(var(--tarkov-success) / 0.4);
+    transform: translateY(-1px);
+  }
+
+  /* Danger button styling */
+  .btn-danger {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--destructive)) 0%,
+      hsl(var(--destructive) / 0.8) 100%
+    );
+    border: 1px solid hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
+    font-weight: 600;
+  }
+
+  .btn-danger:hover {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--destructive) / 0.9) 0%,
+      hsl(var(--destructive) / 0.7) 100%
+    );
+    box-shadow: 0 0 20px hsl(var(--destructive) / 0.4);
+    transform: translateY(-1px);
+  }
+
+  /* Navigation hover states */
+  .nav-item-hover {
+    transition: all 0.2s ease-in-out;
+  }
+
+  .nav-item-hover:hover {
+    background: hsl(var(--mode-accent) / 0.15);
+    border-color: hsl(var(--mode-accent) / 0.5);
+    color: hsl(var(--mode-accent));
+    transform: translateX(4px);
+  }
+
+  /* Status indicators */
+  .status-available {
+    color: hsl(120 40% 45%);
+    text-shadow: 0 0 8px currentColor;
+  }
+
+  .status-active {
+    color: hsl(45 100% 60%);
+    text-shadow: 0 0 8px currentColor;
+  }
+
+  .status-completed {
+    color: hsl(120 40% 45%);
+    text-shadow: 0 0 8px currentColor;
+  }
+
+  .status-locked {
+    color: hsl(60 3% 60%);
+  }
+
+  /* Utility classes for consistent spacing and layout */
+  .container-padding {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-padding {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-padding {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .section-spacing {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  @media (min-width: 1024px) {
+    .section-spacing {
+      padding-top: 4rem;
+      padding-bottom: 4rem;
+    }
+  }
+
+  /* Enhanced glass effect for modern UI */
+  .glass-enhanced {
+    background-color: hsl(var(--background) / 0.6);
+    backdrop-filter: blur(24px);
+    border: 1px solid hsl(var(--border) / 0.3);
+    box-shadow: 0 8px 32px hsl(210 11% 8% / 0.8),
+      inset 0 1px 0 hsl(60 5% 85% / 0.1);
+  }
+
+  /* Subtle animations */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.5s ease-out;
+  }
+
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  .animate-flicker {
+    animation: flicker 3s ease-in-out infinite;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pulseGlow {
+    0%,
+    100% {
+      box-shadow: 0 0 5px hsl(35 100% 55% / 0.3);
+    }
+    50% {
+      box-shadow: 0 0 20px hsl(35 100% 55% / 0.6);
+    }
+  }
+
+  @keyframes flicker {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  /* Scrollbar styles */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(210 11% 12% / 0.5);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      135deg,
+      hsl(35 100% 55% / 0.8) 0%,
+      hsl(35 100% 55% / 0.6) 100%
+    );
+    border-radius: 10px;
+    border: 2px solid hsl(210 11% 12% / 0.5);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      135deg,
+      hsl(35 100% 55%) 0%,
+      hsl(35 100% 55% / 0.8) 100%
+    );
+  }
+
+  /* Shimmer effect for loading states */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+    background-color: hsl(210 11% 15% / 0.5);
+  }
+
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(210 11% 20% / 0.3),
+      transparent
+    );
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
+  /* Tooltip styling */
+  .tooltip {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    border-radius: 0.375rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid hsl(210 11% 20%);
+  }
 }
