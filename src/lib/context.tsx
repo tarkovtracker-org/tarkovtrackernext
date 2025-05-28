@@ -8,6 +8,7 @@ import {
   HideoutModule,
   AggregatedRequiredItem,
   Team,
+  TeamMember,
 } from "./types";
 import {
   usePersistentState,
@@ -15,6 +16,18 @@ import {
   createDefaultUserProfile,
   createDefaultGameModeData,
 } from "./storage";
+
+// Define a TeamJoinResult type for better error handling in joinTeam
+type TeamJoinResult =
+  | boolean
+  | {
+      errorType: "gameModeMismatch";
+      requiredMode: "pve" | "pvp";
+      errorMessage?: string;
+    }
+  | { errorType: "alreadyInTeam"; errorMessage?: string }
+  | { errorType: "invalidCode"; errorMessage?: string }
+  | { errorType: "unknownError"; errorMessage?: string };
 
 interface AppContextType {
   // User profile state
@@ -76,12 +89,15 @@ interface AppContextType {
   ) => void;
 
   // Team management functions
-  createTeam: (teamName: string, leaderName: string) => void;
+  createTeam: () => void;
+  joinTeam: (inviteCode: string) => Promise<TeamJoinResult>; // Returns success status or detailed error
   inviteMember: (memberName: string) => void;
   kickMember: (memberId: string) => void;
   leaveTeam: () => void;
   disbandTeam: () => void;
   getCurrentTeam: () => Team | null;
+  generateNewInviteCode: () => void; // Generate new invite code for existing team
+  refreshTeam: () => Promise<void>; // Refresh team data from server
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -470,126 +486,719 @@ export function AppProvider({ children }: AppProviderProps) {
   };
 
   // Team management functions
-  const createTeam = (teamName: string, leaderName: string) => {
-    const newTeam: Team = {
-      id: crypto.randomUUID(),
-      name: teamName,
-      members: [
-        {
-          id: crypto.randomUUID(),
-          name: leaderName,
-          isSelf: true,
-          joinedAt: new Date(),
+
+  // Team management functions
+  // Add these API functions to your context
+
+  const createTeam = async () => {
+    try {
+      // Use the user's display name or default to "Player"
+      const leaderName = userProfile.displayName || "Player";
+      // Generate a team name based on the user's display name
+      const teamName = `${leaderName}'s Team`;
+
+      const teamResponse = await fetch("/api/teams", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ],
-      leaderId: crypto.randomUUID(),
-      createdAt: new Date(),
-      lastUpdated: new Date(),
-    };
+        body: JSON.stringify({
+          teamName,
+          leaderName,
+          userId: userProfile.id,
+          gameMode: userProfile.currentGameMode,
+        }),
+      });
 
-    // Set the leaderId to the first member's id
-    newTeam.leaderId = newTeam.members[0].id;
+      if (!teamResponse.ok) {
+        throw new Error("Failed to create team");
+      }
 
-    setCurrentModeData((prev) => ({
-      ...prev,
-      team: newTeam,
-      lastUpdated: new Date(),
-    }));
-  };
+      const { team } = await teamResponse.json();
 
-  const inviteMember = (memberName: string) => {
-    const currentTeam = getCurrentModeData().team;
-    if (!currentTeam) return;
-
-    const newMember = {
-      id: crypto.randomUUID(),
-      name: memberName,
-      isSelf: false,
-      joinedAt: new Date(),
-    };
-
-    setCurrentModeData((prev) => ({
-      ...prev,
-      team: {
-        ...currentTeam,
-        members: [...currentTeam.members, newMember],
+      setCurrentModeDataWithBackup((prev) => ({
+        ...prev,
+        team: team,
         lastUpdated: new Date(),
-      },
-      lastUpdated: new Date(),
-    }));
-  };
+      }));
 
-  const kickMember = (memberId: string) => {
-    const currentTeam = getCurrentModeData().team;
-    if (!currentTeam) return;
+      const inviteCodeResponse = await fetch("/api/teams/invite-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userProfile.id,
+          gameMode: userProfile.currentGameMode,
+        }),
+      });
 
-    // Don't allow kicking the leader or self
-    const memberToKick = currentTeam.members.find((m) => m.id === memberId);
-    if (
-      !memberToKick ||
-      memberToKick.id === currentTeam.leaderId ||
-      memberToKick.isSelf
-    )
-      return;
+      let newInviteCode;
 
-    setCurrentModeData((prev) => ({
-      ...prev,
-      team: {
-        ...currentTeam,
-        members: currentTeam.members.filter((member) => member.id !== memberId),
-        lastUpdated: new Date(),
-      },
-      lastUpdated: new Date(),
-    }));
-  };
+      if (inviteCodeResponse.ok) {
+        // If server responded successfully, use the returned invite code
+        const data = await inviteCodeResponse.json();
+        newInviteCode = data.inviteCode;
+      } else {
+        // Fallback to client-side generation if API fails
+        newInviteCode = Math.floor(100000 + Math.random() * 900000).toString();
+        console.warn(
+          "API error - falling back to client-side invite code generation"
+        );
 
-  const leaveTeam = () => {
-    const currentTeam = getCurrentModeData().team;
-    if (!currentTeam) return;
+        // Attempt to sync the client-generated code with the server
+        try {
+          const syncResponse = await fetch("/api/teams/sync-code", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: userProfile.id,
+              inviteCode: newInviteCode,
+              gameMode: userProfile.currentGameMode,
+            }),
+          });
 
-    const selfMember = currentTeam.members.find((m) => m.isSelf);
-    if (!selfMember) return;
+          if (!syncResponse.ok) {
+            console.warn(
+              "Failed to sync client-generated invite code with server"
+            );
+          }
+        } catch (syncError) {
+          console.error(
+            "Error syncing client-generated invite code:",
+            syncError
+          );
+        }
+      }
 
-    // If the leaving member is the leader, disband the team
-    if (selfMember.id === currentTeam.leaderId) {
-      disbandTeam();
-      return;
+      // Update the context with the new invite code
+      setCurrentModeDataWithBackup((prev) => {
+        if (!prev.team) return prev;
+
+        return {
+          ...prev,
+          team: {
+            ...prev.team,
+            inviteCode: newInviteCode,
+            lastUpdated: new Date(),
+          },
+          lastUpdated: new Date(),
+        };
+      });
+
+      return newInviteCode;
+    } catch (error) {
+      console.error("Error generating new invite code:", error);
+      // Fallback to client-side generation in case of exception
+      const fallbackCode = Math.floor(
+        100000 + Math.random() * 900000
+      ).toString();
+
+      // Attempt to sync the fallback code with the server
+      try {
+        fetch("/api/teams/sync-code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: userProfile.id,
+            inviteCode: fallbackCode,
+            gameMode: userProfile.currentGameMode,
+          }),
+        }).catch((syncError) =>
+          console.error("Error syncing fallback invite code:", syncError)
+        );
+      } catch (syncError) {
+        console.error("Error initiating sync for fallback code:", syncError);
+      }
+
+      setCurrentModeDataWithBackup((prev) => {
+        if (!prev.team) return prev;
+
+        return {
+          ...prev,
+          team: {
+            ...prev.team,
+            inviteCode: fallbackCode,
+            lastUpdated: new Date(),
+          },
+          lastUpdated: new Date(),
+        };
+      });
+
+      return fallbackCode;
     }
-
-    // Remove self from team
-    const updatedMembers = currentTeam.members.filter(
-      (member) => !member.isSelf
-    );
-
-    // If no members left, disband
-    if (updatedMembers.length === 0) {
-      disbandTeam();
-      return;
-    }
-
-    setCurrentModeData((prev) => ({
-      ...prev,
-      team: {
-        ...currentTeam,
-        members: updatedMembers,
-        lastUpdated: new Date(),
-      },
-      lastUpdated: new Date(),
-    }));
   };
 
-  const disbandTeam = () => {
-    setCurrentModeData((prev) => ({
-      ...prev,
-      team: null,
-      lastUpdated: new Date(),
-    }));
+  const joinTeam = async (inviteCode: string): Promise<TeamJoinResult> => {
+    try {
+      console.log(`Attempting to join team with invite code: ${inviteCode}`);
+      console.log(
+        `User ID: ${userProfile.id}, Name: ${
+          userProfile.displayName || userProfile.name
+        }`
+      );
+
+      // Try to join the team directly
+      const response = await fetch("/api/teams/join", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inviteCode,
+          userName: userProfile.displayName || userProfile.name,
+          userId: userProfile.id,
+          gameMode: userProfile.currentGameMode,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Join team successful:", data);
+
+        if (data.team) {
+          // Set isSelf to true for the current user in the team members
+          const updatedTeam = {
+            ...data.team,
+            members: data.team.members.map((member: TeamMember) => ({
+              ...member,
+              isSelf: member.id === userProfile.id,
+            })),
+          };
+
+          setCurrentModeDataWithBackup((prev) => ({
+            ...prev,
+            team: updatedTeam,
+            lastUpdated: new Date(),
+          }));
+          return true;
+        }
+      } else {
+        // Get detailed error message from response if possible
+        try {
+          const errorData = await response.json();
+          console.error(
+            `Join team failed with status ${response.status}: ${
+              errorData.error || "Unknown error"
+            }`
+          );
+
+          // Check for specific error types based on error message content
+          if (errorData.error && typeof errorData.error === "string") {
+            // Check for game mode mismatch error
+            if (errorData.error.includes("mode, but you're in")) {
+              // Extract the required mode from the error message
+              // Example: "This invite code is for PVP mode, but you're in PVE mode"
+              const requiredModeMatch =
+                errorData.error.match(/is for (\w+) mode/i);
+              const requiredMode = requiredModeMatch
+                ? requiredModeMatch[1].toLowerCase()
+                : "unknown";
+
+              return {
+                errorType: "gameModeMismatch",
+                requiredMode: requiredMode === "pvp" ? "pvp" : "pve",
+                errorMessage: errorData.error,
+              };
+            }
+            // Check for already in team error
+            else if (
+              errorData.error.includes("already in a") &&
+              errorData.error.includes("team")
+            ) {
+              return {
+                errorType: "alreadyInTeam",
+                errorMessage: errorData.error,
+              };
+            }
+            // Check for invalid code error
+            else if (errorData.error.includes("Invalid invite code")) {
+              return {
+                errorType: "invalidCode",
+                errorMessage: errorData.error,
+              };
+            }
+          }
+
+          // Return the actual error message for unknown errors
+          return {
+            errorType: "unknownError",
+            errorMessage: errorData.error || "Unknown error",
+          };
+        } catch (e) {
+          console.error(
+            `Join team failed with status ${response.status}. Parse error: ${
+              e instanceof Error ? e.message : "Unknown error"
+            }`
+          );
+        }
+        return { errorType: "unknownError" };
+      }
+
+      return { errorType: "unknownError" };
+    } catch (error) {
+      console.error("Error joining team:", error);
+      return { errorType: "unknownError" };
+    }
+  };
+
+  const generateNewInviteCode = async () => {
+    try {
+      const response = await fetch("/api/teams/invite-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userProfile.id,
+          gameMode: userProfile.currentGameMode,
+        }),
+      });
+
+      let newInviteCode;
+
+      if (response.ok) {
+        // If server responded successfully, use the returned invite code
+        const data = await response.json();
+        newInviteCode = data.inviteCode;
+      } else {
+        // Fallback to client-side generation if API fails
+        newInviteCode = Math.floor(100000 + Math.random() * 900000).toString();
+        console.warn(
+          "API error - falling back to client-side invite code generation"
+        );
+
+        // Attempt to sync the client-generated code with the server
+        try {
+          const syncResponse = await fetch("/api/teams/sync-code", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: userProfile.id,
+              inviteCode: newInviteCode,
+              gameMode: userProfile.currentGameMode,
+            }),
+          });
+
+          if (!syncResponse.ok) {
+            console.warn(
+              "Failed to sync client-generated invite code with server"
+            );
+          }
+        } catch (syncError) {
+          console.error(
+            "Error syncing client-generated invite code:",
+            syncError
+          );
+        }
+      }
+
+      // Update the context with the new invite code
+      setCurrentModeDataWithBackup((prev) => {
+        if (!prev.team) return prev;
+
+        return {
+          ...prev,
+          team: {
+            ...prev.team,
+            inviteCode: newInviteCode,
+            lastUpdated: new Date(),
+          },
+          lastUpdated: new Date(),
+        };
+      });
+
+      return newInviteCode;
+    } catch (error) {
+      console.error("Error generating new invite code:", error);
+      // Fallback to client-side generation in case of exception
+      const fallbackCode = Math.floor(
+        100000 + Math.random() * 900000
+      ).toString();
+
+      // Attempt to sync the fallback code with the server
+      try {
+        fetch("/api/teams/sync-code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: userProfile.id,
+            inviteCode: fallbackCode,
+            gameMode: userProfile.currentGameMode,
+          }),
+        }).catch((syncError) =>
+          console.error("Error syncing fallback invite code:", syncError)
+        );
+      } catch (syncError) {
+        console.error("Error initiating sync for fallback code:", syncError);
+      }
+
+      setCurrentModeDataWithBackup((prev) => {
+        if (!prev.team) return prev;
+
+        return {
+          ...prev,
+          team: {
+            ...prev.team,
+            inviteCode: fallbackCode,
+            lastUpdated: new Date(),
+          },
+          lastUpdated: new Date(),
+        };
+      });
+
+      return fallbackCode;
+    }
+  };
+
+  const inviteMember = async (memberName: string) => {
+    try {
+      const response = await fetch("/api/teams/members", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userProfile.id,
+          memberName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to invite member");
+      }
+
+      const { team } = await response.json();
+
+      setCurrentModeDataWithBackup((prev) => ({
+        ...prev,
+        team: team,
+        lastUpdated: new Date(),
+      }));
+    } catch (error) {
+      console.error("Error inviting member:", error);
+    }
+  };
+
+  const kickMember = async (memberId: string) => {
+    try {
+      const response = await fetch("/api/teams/members", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userProfile.id,
+          memberId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("❌ API call failed:", response.status, errorData);
+        throw new Error(
+          `Failed to kick member: ${errorData.error || "Unknown error"}`
+        );
+      }
+
+      const { team } = await response.json();
+
+      setCurrentModeDataWithBackup((prev) => ({
+        ...prev,
+        team: team,
+        lastUpdated: new Date(),
+      }));
+
+      console.log("✅ Member kicked successfully");
+    } catch (error) {
+      console.error("❌ Error kicking member:", error);
+      throw error; // Re-throw to allow UI to handle the error
+    }
+  };
+
+  const leaveTeam = async () => {
+    try {
+      const response = await fetch("/api/teams/members", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userProfile.id,
+          memberId: userProfile.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to leave team");
+      }
+
+      setCurrentModeDataWithBackup((prev) => ({
+        ...prev,
+        team: null,
+        lastUpdated: new Date(),
+      }));
+    } catch (error) {
+      console.error("Error leaving team:", error);
+    }
+  };
+
+  const disbandTeam = async () => {
+    try {
+      console.log("🔥 disbandTeam called - checking current team state");
+      console.log("🔍 Stack trace:", new Error().stack);
+      const currentTeam = getCurrentTeam();
+
+      console.log("📊 Current user profile:", {
+        id: userProfile.id,
+        currentGameMode: userProfile.currentGameMode,
+        displayName: userProfile.displayName,
+      });
+
+      console.log("📊 Current team from state:", currentTeam);
+
+      if (!currentTeam) {
+        console.log("❌ No team found to disband");
+        throw new Error("No team found to disband");
+      }
+
+      console.log(
+        "🔥 Attempting to disband team:",
+        currentTeam.id,
+        currentTeam.name,
+        "Leader ID:",
+        currentTeam.leaderId
+      );
+
+      // First, let's verify the team exists on the server
+      console.log("🔍 Verifying team exists on server...");
+      const verifyResponse = await fetch(
+        `/api/teams?userId=${userProfile.id}&gameMode=${userProfile.currentGameMode}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (verifyResponse.ok) {
+        const verifyData = await verifyResponse.json();
+        console.log("📊 Server team state:", verifyData.team);
+
+        if (!verifyData.team) {
+          console.log(
+            "⚠️ No team found on server, but frontend has team state"
+          );
+          // Clear the frontend state to match server
+          setCurrentModeDataWithBackup((prev) => ({
+            ...prev,
+            team: null,
+            lastUpdated: new Date(),
+          }));
+          throw new Error("Team no longer exists on server");
+        }
+      }
+
+      // Properly await the API call and handle the response
+      const url = `/api/teams?userId=${userProfile.id}&gameMode=${userProfile.currentGameMode}`;
+      console.log("🌐 Making DELETE request to:", url);
+
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("📡 Response status:", response.status);
+      console.log(
+        "📡 Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("❌ API call failed:", response.status, errorData);
+        throw new Error(
+          `Failed to disband team: ${errorData.error || "Unknown error"}`
+        );
+      }
+
+      const responseData = await response.json();
+      console.log("✅ Team successfully disbanded via API:", responseData);
+
+      // Only remove from local state if API call succeeded
+      setCurrentModeDataWithBackup((prev) => ({
+        ...prev,
+        team: null,
+        lastUpdated: new Date(),
+      }));
+
+      console.log("✅ Team removed from local state");
+      return true;
+    } catch (error) {
+      console.error("❌ Error disbanding team:", error);
+
+      // Don't automatically clear local state on error
+      // Let the user know there was an issue
+      throw error;
+    }
   };
 
   const getCurrentTeam = (): Team | null => {
-    return getCurrentModeData().team;
+    return getCurrentModeData().team || null;
   };
 
+  const refreshTeam = async () => {
+    try {
+      console.log("🔄 Refreshing team data...");
+      const response = await fetch("/api/teams/refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userProfile.id,
+          gameMode: userProfile.currentGameMode,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh team");
+      }
+
+      const { team } = await response.json();
+
+      if (team) {
+        console.log("✅ Team data refreshed from server:", team.name);
+        setCurrentModeDataWithBackup((prev) => ({
+          ...prev,
+          team: team,
+          lastUpdated: new Date(),
+        }));
+      } else {
+        console.log(
+          "⚠️ No team found on server, checking localStorage backup..."
+        );
+        const backupTeam = loadTeamFromLocalStorage();
+
+        if (backupTeam) {
+          console.log("🔄 Attempting to restore team from backup...");
+          // Try to restore the team on the server
+          try {
+            const restoreResponse = await fetch("/api/teams", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                teamName: backupTeam.name,
+                leaderName: userProfile.displayName || "Player",
+                userId: userProfile.id,
+                gameMode: userProfile.currentGameMode,
+                initialInviteCode: backupTeam.inviteCode,
+              }),
+            });
+
+            if (restoreResponse.ok) {
+              const { team: restoredTeam } = await restoreResponse.json();
+              console.log("✅ Team restored from backup:", restoredTeam.name);
+              setCurrentModeDataWithBackup((prev) => ({
+                ...prev,
+                team: restoredTeam,
+                lastUpdated: new Date(),
+              }));
+            } else {
+              console.log("❌ Failed to restore team, clearing local state");
+              setCurrentModeDataWithBackup((prev) => ({
+                ...prev,
+                team: null,
+                lastUpdated: new Date(),
+              }));
+            }
+          } catch (restoreError) {
+            console.error("Error restoring team:", restoreError);
+            setCurrentModeDataWithBackup((prev) => ({
+              ...prev,
+              team: null,
+              lastUpdated: new Date(),
+            }));
+          }
+        } else {
+          console.log("ℹ️ No backup team found, user has no team");
+          setCurrentModeDataWithBackup((prev) => ({
+            ...prev,
+            team: null,
+            lastUpdated: new Date(),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing team:", error);
+      // Don't clear the team on refresh errors, keep existing state
+    }
+  };
+
+  // Helper function to save team to localStorage as backup
+  const saveTeamToLocalStorage = (team: Team | null) => {
+    try {
+      if (typeof window !== "undefined") {
+        const key = `tarkov-tracker-team-${userProfile.id}`;
+        if (team) {
+          localStorage.setItem(key, JSON.stringify(team));
+          console.log("💾 Team saved to localStorage backup");
+        } else {
+          localStorage.removeItem(key);
+          console.log("💾 Team removed from localStorage backup");
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to save team to localStorage:", error);
+    }
+  };
+
+  // Helper function to load team from localStorage backup
+  const loadTeamFromLocalStorage = (): Team | null => {
+    try {
+      if (typeof window !== "undefined") {
+        const key = `tarkov-tracker-team-${userProfile.id}`;
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          const team = JSON.parse(saved);
+          console.log("💾 Team loaded from localStorage backup:", team.name);
+          return team;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to load team from localStorage:", error);
+    }
+    return null;
+  };
+
+  // Modified setCurrentModeData to also save team to localStorage
+  const setCurrentModeDataWithBackup = (
+    data: GameModeData | ((prev: GameModeData) => GameModeData)
+  ) => {
+    setCurrentModeData((prev) => {
+      const newData = typeof data === "function" ? data(prev) : data;
+
+      // Save team to localStorage backup
+      saveTeamToLocalStorage(newData.team || null);
+
+      return newData;
+    });
+  };
+
+  // Update the context value to include the new functions
   const contextValue: AppContextType = {
     userProfile,
     setUserProfile,
@@ -615,11 +1224,14 @@ export function AppProvider({ children }: AppProviderProps) {
     updateGlobalItemQuantity,
     updateTaskRequiredItemQuantity,
     createTeam,
+    joinTeam,
     inviteMember,
     kickMember,
     leaveTeam,
     disbandTeam,
     getCurrentTeam,
+    generateNewInviteCode,
+    refreshTeam,
   };
 
   return (
