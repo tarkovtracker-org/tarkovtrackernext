@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { LevelSelector } from "./level-selector";
 
 interface NavigationItem {
   name: string;
@@ -145,6 +146,16 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Level Selector - only show when not collapsed */}
+      {!collapsed && (
+        <div
+          className="p-4 border-t"
+          style={{ borderColor: `hsl(var(--sidebar-border))` }}
+        >
+          <LevelSelector />
+        </div>
+      )}
     </div>
   );
 }
