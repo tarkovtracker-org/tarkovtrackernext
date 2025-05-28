@@ -12,6 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Download,
@@ -21,14 +28,18 @@ import {
   User,
   Palette,
   Save,
+  Shield,
 } from "lucide-react";
 import { exportProgress, importProgress, clearProgress } from "@/lib/storage";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
-  const { userProfile, updateDisplayName } = useAppContext();
+  const { userProfile, updateDisplayName, updatePmcFaction } = useAppContext();
   const gameMode = userProfile.currentGameMode;
   const [displayName, setDisplayName] = useState(userProfile.displayName || "");
+  const [pmcFaction, setPmcFaction] = useState<"USEC" | "BEAR">(
+    userProfile.pmcFaction || "USEC"
+  );
 
   const handleExport = () => {
     try {
@@ -90,6 +101,11 @@ export default function SettingsPage() {
     toast.success("Display name updated successfully");
   };
 
+  const handleSavePmcFaction = () => {
+    updatePmcFaction(pmcFaction);
+    toast.success("PMC faction updated successfully");
+  };
+
   return (
     <div className="space-y-8">
       <div className="space-y-2">
@@ -141,6 +157,48 @@ export default function SettingsPage() {
                 </p>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="pmcFaction">PMC Faction</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={pmcFaction}
+                    onValueChange={(value) =>
+                      setPmcFaction(value as "USEC" | "BEAR")
+                    }
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select PMC faction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USEC">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-blue-400" />
+                          USEC
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="BEAR">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 text-red-400" />
+                          BEAR
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleSavePmcFaction}
+                    className="btn-success"
+                    disabled={pmcFaction === userProfile.pmcFaction}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Your PMC faction affects certain tasks and trader
+                  interactions. This setting is for tracking purposes.
+                </p>
+              </div>
+
               <div className="content-card p-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
@@ -148,6 +206,19 @@ export default function SettingsPage() {
                   </span>
                   <span className="text-tarkov-orange font-medium">
                     {userProfile.displayName || "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">PMC Faction:</span>
+                  <span className="text-tarkov-orange font-medium flex items-center gap-1">
+                    <Shield
+                      className={`h-4 w-4 ${
+                        userProfile.pmcFaction === "USEC"
+                          ? "text-blue-400"
+                          : "text-red-400"
+                      }`}
+                    />
+                    {userProfile.pmcFaction || "Not set"}
                   </span>
                 </div>
                 <div className="flex justify-between">
