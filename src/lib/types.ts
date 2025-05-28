@@ -6,6 +6,8 @@ export interface UserProfile {
   name: string;
   displayName?: string;
   currentGameMode: GameMode;
+  level?: number; // Player level (1-79)
+  pmcFaction?: "USEC" | "BEAR"; // PMC Faction
   preferences: {
     theme: "light" | "dark" | "system";
     autoSave: boolean;
