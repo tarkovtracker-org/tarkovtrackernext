@@ -153,7 +153,7 @@ export default function SettingsPage() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Last Updated:</span>
                   <span className="text-sm text-muted-foreground">
-                    {userProfile.lastUpdated.toLocaleDateString()}
+                    {new Date(userProfile.lastUpdated).toLocaleDateString()}
                   </span>
                 </div>
               </div>
