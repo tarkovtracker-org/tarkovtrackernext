@@ -106,7 +106,7 @@ export function TaskItem({ task, onUpdateStatus, onUpdateObjective }: TaskItemPr
             {task.status === 'active' && (
               <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                Started {task.startedAt?.toLocaleDateString()}
+                Started {task.startedAt ? new Date(task.startedAt).toLocaleDateString() : ''}
               </div>
             )}
           </div>
