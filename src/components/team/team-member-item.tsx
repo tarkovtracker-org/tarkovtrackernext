@@ -1,11 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { TeamMember } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAppContext } from "@/lib/context";
-import { UserIcon, CrownIcon, TrashIcon } from "lucide-react";
+import { UserIcon, CrownIcon, TrashIcon, LoaderIcon } from "lucide-react";
 
 interface TeamMemberItemProps {
   member: TeamMember;
@@ -13,12 +14,33 @@ interface TeamMemberItemProps {
   canKick: boolean;
 }
 
-export function TeamMemberItem({ member, isLeader, canKick }: TeamMemberItemProps) {
+export function TeamMemberItem({
+  member,
+  isLeader,
+  canKick,
+}: TeamMemberItemProps) {
   const { kickMember } = useAppContext();
+  const [isKicking, setIsKicking] = useState(false);
+  const [kickError, setKickError] = useState<string | null>(null);
 
-  const handleKick = () => {
-    if (canKick && !member.isSelf) {
-      kickMember(member.id);
+  const handleKick = async () => {
+    if (canKick && !member.isSelf && !isKicking) {
+      setIsKicking(true);
+      setKickError(null);
+
+      try {
+        await kickMember(member.id);
+      } catch (error) {
+        console.error("Failed to kick member:", error);
+        setKickError(
+          error instanceof Error ? error.message : "Failed to kick member"
+        );
+
+        // Clear error after 5 seconds
+        setTimeout(() => setKickError(null), 5000);
+      } finally {
+        setIsKicking(false);
+      }
     }
   };
 
@@ -38,28 +60,43 @@ export function TeamMemberItem({ member, isLeader, canKick }: TeamMemberItemProp
                 </Badge>
               )}
               {isLeader && (
-                <Badge variant="default" className="text-xs flex items-center gap-1">
+                <Badge
+                  variant="default"
+                  className="text-xs flex items-center gap-1"
+                >
                   <CrownIcon className="w-3 h-3" />
                   Leader
                 </Badge>
               )}
             </div>
             <span className="text-sm text-muted-foreground">
-              Joined {member.joinedAt.toLocaleDateString()}
+              Joined {new Date(member.joinedAt).toLocaleDateString()}
             </span>
           </div>
         </div>
-        
+
         {canKick && !member.isSelf && !isLeader && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleKick}
-            className="flex items-center gap-1"
-          >
-            <TrashIcon className="w-3 h-3" />
-            Kick
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleKick}
+              disabled={isKicking}
+              className="flex items-center gap-1 relative"
+            >
+              {isKicking ? (
+                <LoaderIcon className="w-3 h-3 animate-spin" />
+              ) : (
+                <TrashIcon className="w-3 h-3" />
+              )}
+              {isKicking ? "Kicking..." : "Kick"}
+            </Button>
+            {kickError && (
+              <span className="text-xs text-red-500 max-w-32 text-right">
+                {kickError}
+              </span>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
