@@ -36,6 +36,7 @@ interface AppContextType {
     profile: UserProfile | ((prev: UserProfile) => UserProfile)
   ) => void;
   updateDisplayName: (displayName: string) => void;
+  updatePmcFaction: (pmcFaction: "USEC" | "BEAR") => void;
 
   // PvP game mode data
   pvpData: GameModeData;
@@ -153,6 +154,15 @@ export function AppProvider({ children }: AppProviderProps) {
     setUserProfile((prev) => ({
       ...prev,
       displayName: displayName.trim() || undefined,
+      lastUpdated: new Date(),
+    }));
+  };
+
+  // Helper function to update PMC faction
+  const updatePmcFaction = (pmcFaction: "USEC" | "BEAR") => {
+    setUserProfile((prev) => ({
+      ...prev,
+      pmcFaction,
       lastUpdated: new Date(),
     }));
   };
@@ -1203,6 +1213,7 @@ export function AppProvider({ children }: AppProviderProps) {
     userProfile,
     setUserProfile,
     updateDisplayName,
+    updatePmcFaction,
     pvpData,
     setPvpData,
     pveData,
