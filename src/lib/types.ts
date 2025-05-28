@@ -125,6 +125,8 @@ export interface Team {
   name: string;
   members: TeamMember[];
   leaderId: string;
+  inviteCode: string; // 6-digit invite code
+  gameMode: "pve" | "pvp"; // Game mode this team belongs to
   createdAt: Date;
   lastUpdated: Date;
 }
